@@ -1,10 +1,35 @@
 const W = 1080;
 const H = 1350;
+const APP_VERSION = 'iwa-canvas-v2-course-card';
 
 const presets = {
-  level1: { label: 'Level 1', bg: '#0f8f8f', bg2: '#126f7d', accent: '#f3d98a', dark: '#083b44', title: 'WSET LEVEL 1' },
-  level2: { label: 'Level 2', bg: '#1f7db6', bg2: '#145d94', accent: '#f9d66b', dark: '#0b355a', title: 'WSET LEVEL 2' },
-  level3: { label: 'Level 3', bg: '#762133', bg2: '#32121c', accent: '#e7c67a', dark: '#241016', title: 'WSET LEVEL 3' }
+  level1: {
+    label: 'Level 1',
+    short: 'LEVEL 1',
+    bg: '#138f8d',
+    bg2: '#0a6c76',
+    accent: '#f4d46f',
+    dark: '#073b43',
+    title: 'WSET LEVEL 1'
+  },
+  level2: {
+    label: 'Level 2',
+    short: 'LEVEL 2',
+    bg: '#1f7db6',
+    bg2: '#155c92',
+    accent: '#f4d46f',
+    dark: '#07365c',
+    title: 'WSET LEVEL 2'
+  },
+  level3: {
+    label: 'Level 3',
+    short: 'LEVEL 3',
+    bg: '#7f2638',
+    bg2: '#38131e',
+    accent: '#e8c775',
+    dark: '#251017',
+    title: 'WSET LEVEL 3'
+  }
 };
 
 const defaults = {
@@ -56,19 +81,38 @@ const els = {
 let state = loadState();
 let logoSrc = localStorage.getItem('iwaLogoSrc') || '';
 let bottomSrc = localStorage.getItem('iwaBottomSrc') || '';
-let imageControl = { zoom: 1, x: 0, y: 0 };
+let imageControl = loadImageControl();
 let drawVersion = 0;
 
 function loadState() {
   try {
+    const savedVersion = localStorage.getItem('iwaAppVersion');
+    if (savedVersion !== APP_VERSION) {
+      localStorage.removeItem('iwaForm');
+      localStorage.setItem('iwaAppVersion', APP_VERSION);
+      return { ...defaults };
+    }
     return { ...defaults, ...JSON.parse(localStorage.getItem('iwaForm') || '{}') };
   } catch {
     return { ...defaults };
   }
 }
 
+function loadImageControl() {
+  try {
+    return { zoom: 1, x: 0, y: 0, ...JSON.parse(localStorage.getItem('iwaImageControl') || '{}') };
+  } catch {
+    return { zoom: 1, x: 0, y: 0 };
+  }
+}
+
 function saveState() {
   localStorage.setItem('iwaForm', JSON.stringify(state));
+  localStorage.setItem('iwaAppVersion', APP_VERSION);
+}
+
+function saveImageControl() {
+  localStorage.setItem('iwaImageControl', JSON.stringify(imageControl));
 }
 
 function fileToDataUrl(file) {
@@ -98,7 +142,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.arcTo(x + w, y, x + w, y + h, rr);
   ctx.arcTo(x + w, y + h, x, y + h, rr);
   ctx.arcTo(x, y + h, x, y, rr);
-  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.arcTo(x, y, x + rr, y, rr);
   ctx.closePath();
 }
 
@@ -109,8 +153,24 @@ function cover(ctx, img, x, y, w, h, zoom = 1, ox = 0, oy = 0) {
   ctx.drawImage(img, x + (w - dw) / 2 + Number(ox || 0), y + (h - dh) / 2 + Number(oy || 0), dw, dh);
 }
 
+function fitFont(ctx, text, maxWidth, startSize, minSize, weight = '900', family = 'Arial, Helvetica, sans-serif') {
+  let size = startSize;
+  do {
+    ctx.font = `${weight} ${size}px ${family}`;
+    if (ctx.measureText(String(text || '')).width <= maxWidth) return size;
+    size -= 2;
+  } while (size >= minSize);
+  return minSize;
+}
+
+function fillFitted(ctx, text, x, y, maxWidth, startSize, minSize, options = {}) {
+  const size = fitFont(ctx, text, maxWidth, startSize, minSize, options.weight || '900', options.family || 'Arial, Helvetica, sans-serif');
+  ctx.font = `${options.weight || '900'} ${size}px ${options.family || 'Arial, Helvetica, sans-serif'}`;
+  ctx.fillText(String(text || ''), x, y);
+}
+
 function wrapped(ctx, text, x, y, maxWidth, lineHeight, maxLines = 2) {
-  const words = String(text || '').split(' ');
+  const words = String(text || '').split(' ').filter(Boolean);
   const lines = [];
   let current = '';
   for (const word of words) {
@@ -131,19 +191,31 @@ function wrapped(ctx, text, x, y, maxWidth, lineHeight, maxLines = 2) {
 
 function drawLogoPlaceholder(ctx, x, y, size, preset) {
   ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,.94)';
+  ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = preset.accent;
-  ctx.lineWidth = 7;
+  ctx.lineWidth = 6;
   ctx.stroke();
   ctx.fillStyle = preset.dark;
   ctx.textAlign = 'center';
-  ctx.font = '800 38px Arial, Helvetica, sans-serif';
+  ctx.font = '900 38px Arial, Helvetica, sans-serif';
   ctx.fillText('IWA', x + size / 2, y + size / 2 + 12);
-  ctx.font = '700 12px Arial, Helvetica, sans-serif';
-  ctx.fillText('ITALIAN WINE ACADEMY', x + size / 2, y + size - 28);
+  ctx.font = '800 11px Arial, Helvetica, sans-serif';
+  ctx.fillText('ITALIAN WINE ACADEMY', x + size / 2, y + size - 24);
+  ctx.restore();
+}
+
+function drawDetail(ctx, label, value, x, y, w, preset) {
+  ctx.save();
+  ctx.fillStyle = preset.bg;
+  ctx.font = '900 20px Arial, Helvetica, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(label, x, y);
+  ctx.fillStyle = preset.dark;
+  ctx.font = '900 38px Arial, Helvetica, sans-serif';
+  wrapped(ctx, value, x, y + 44, w, 41, 2);
   ctx.restore();
 }
 
@@ -161,156 +233,145 @@ async function draw() {
   els.canvas.height = H;
   ctx.clearRect(0, 0, W, H);
 
-  const bg = ctx.createLinearGradient(0, 0, W, H);
+  const topH = 825;
+  const photoY = 825;
+  const photoH = H - photoY;
+
+  const bg = ctx.createLinearGradient(0, 0, W, topH);
   bg.addColorStop(0, preset.bg);
   bg.addColorStop(1, preset.bg2);
   ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, topH);
 
   ctx.save();
-  ctx.globalAlpha = .13;
-  ctx.fillStyle = '#fff';
-  for (let i = 0; i < 82; i++) {
-    const x = (i * 137) % W;
-    const y = (i * 89) % 850;
-    ctx.beginPath();
-    ctx.arc(x, y, 1 + (i % 4), 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-
-  ctx.save();
-  ctx.globalAlpha = .18;
-  ctx.strokeStyle = '#fff';
+  ctx.globalAlpha = 0.16;
+  ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 2;
-  for (let i = -220; i < W; i += 190) {
+  for (let x = -260; x < W + 240; x += 165) {
     ctx.beginPath();
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i + 420, 820);
+    ctx.moveTo(x, -30);
+    ctx.lineTo(x + 360, topH + 30);
     ctx.stroke();
   }
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 120; i++) {
+    const x = (i * 97) % W;
+    const y = (i * 61) % topH;
+    ctx.beginPath();
+    ctx.arc(x, y, 1 + (i % 3), 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 
+  // Header
   if (logo) {
     ctx.save();
-    roundRect(ctx, 64, 54, 170, 170, 85);
-    ctx.fillStyle = 'rgba(255,255,255,.94)';
+    ctx.beginPath();
+    ctx.arc(134, 118, 72, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
     ctx.fill();
     ctx.clip();
-    cover(ctx, logo, 74, 64, 150, 150, 1, 0, 0);
+    cover(ctx, logo, 68, 52, 132, 132, 1, 0, 0);
     ctx.restore();
   } else {
-    drawLogoPlaceholder(ctx, 64, 54, 150, preset);
+    drawLogoPlaceholder(ctx, 62, 46, 144, preset);
   }
 
   ctx.save();
   ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(255,255,255,.9)';
-  ctx.font = '700 28px Arial, Helvetica, sans-serif';
-  ctx.fillText('COURSE ANNOUNCEMENT', 1010, 94);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 28px Arial, Helvetica, sans-serif';
+  ctx.fillText('COURSE ANNOUNCEMENT', 1000, 93);
   ctx.fillStyle = preset.accent;
-  ctx.font = '800 44px Arial, Helvetica, sans-serif';
-  ctx.fillText(preset.label.toUpperCase(), 1010, 146);
+  ctx.font = '900 58px Arial Black, Arial, sans-serif';
+  ctx.fillText(preset.short, 1000, 155);
   ctx.restore();
 
+  // Main white course badge
   ctx.save();
-  roundRect(ctx, 70, 265, 940, 100, 30);
-  ctx.fillStyle = 'rgba(255,255,255,.96)';
-  ctx.shadowColor = 'rgba(0,0,0,.22)';
-  ctx.shadowBlur = 24;
+  ctx.shadowColor = 'rgba(0, 0, 0, .22)';
+  ctx.shadowBlur = 28;
   ctx.shadowOffsetY = 14;
+  roundRect(ctx, 78, 240, 924, 130, 28);
+  ctx.fillStyle = '#f8fbfb';
   ctx.fill();
   ctx.shadowColor = 'transparent';
   ctx.fillStyle = preset.dark;
   ctx.textAlign = 'center';
-  ctx.font = '900 62px Arial Black, Impact, Arial, sans-serif';
-  ctx.fillText(String(state.courseTitle || preset.title).toUpperCase(), 540, 334);
+  fillFitted(ctx, String(state.courseTitle || preset.title).toUpperCase(), 540, 324, 800, 76, 42, { weight: '900', family: 'Arial Black, Arial, sans-serif' });
   ctx.restore();
 
+  // Academy line, now fitted instead of clipped
   ctx.save();
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#fff';
-  ctx.font = '900 78px Arial Black, Impact, Arial, sans-serif';
-  ctx.fillText(String(state.headline || 'ITALIAN WINE ACADEMY').toUpperCase(), 540, 465);
-  ctx.fillStyle = 'rgba(255,255,255,.84)';
-  ctx.font = '700 33px Arial, Helvetica, sans-serif';
-  ctx.fillText(String(state.cta || 'WINE EDUCATION COURSE').toUpperCase(), 540, 520);
+  ctx.fillStyle = '#ffffff';
+  fillFitted(ctx, 'ITALIAN WINE ACADEMY', 540, 452, 950, 74, 44, { weight: '900', family: 'Arial Black, Arial, sans-serif' });
+  ctx.fillStyle = 'rgba(255,255,255,.88)';
+  ctx.font = '900 34px Arial, Helvetica, sans-serif';
+  ctx.fillText(String(state.language || '').toUpperCase(), 540, 505);
   ctx.restore();
 
+  // Details card
   ctx.save();
-  roundRect(ctx, 88, 588, 904, 252, 36);
-  ctx.fillStyle = 'rgba(255,255,255,.92)';
-  ctx.shadowColor = 'rgba(0,0,0,.2)';
-  ctx.shadowBlur = 22;
-  ctx.shadowOffsetY = 12;
+  ctx.shadowColor = 'rgba(0,0,0,.18)';
+  ctx.shadowBlur = 26;
+  ctx.shadowOffsetY = 16;
+  roundRect(ctx, 88, 568, 904, 205, 28);
+  ctx.fillStyle = 'rgba(255,255,255,.94)';
   ctx.fill();
   ctx.shadowColor = 'transparent';
-  const detail = [
-    ['LANGUAGE', state.language], ['DATE', state.date], ['LOCATION', state.location], ['EDUCATOR', state.educator]
-  ];
-  const xs = [140, 575];
-  const ys = [652, 735];
-  detail.forEach(([label, value], i) => {
-    const x = xs[i % 2];
-    const y = ys[Math.floor(i / 2)];
-    ctx.fillStyle = preset.bg;
-    ctx.font = '800 18px Arial, Helvetica, sans-serif';
-    ctx.fillText(label, x, y);
-    ctx.fillStyle = preset.dark;
-    ctx.font = '800 31px Arial, Helvetica, sans-serif';
-    wrapped(ctx, value, x, y + 42, 370, 34, 2);
-  });
+  drawDetail(ctx, 'DATE', state.date, 145, 630, 365, preset);
+  drawDetail(ctx, 'LOCATION', state.location, 585, 630, 365, preset);
+  drawDetail(ctx, 'EDUCATOR', state.educator, 145, 728, 790, preset);
   ctx.restore();
 
+  // Exam ribbon
   ctx.save();
-  roundRect(ctx, 88, 875, 904, 78, 24);
+  roundRect(ctx, 88, 793, 904, 66, 18);
   ctx.fillStyle = preset.accent;
   ctx.fill();
   ctx.fillStyle = preset.dark;
   ctx.textAlign = 'center';
-  ctx.font = '900 30px Arial, Helvetica, sans-serif';
-  wrapped(ctx, state.examNote, 540, 924, 820, 34, 1);
+  fillFitted(ctx, state.examNote, 540, 836, 830, 31, 22, { weight: '900' });
   ctx.restore();
 
-  const imgY = 985;
-  const imgH = 365;
+  // Bottom GPT image section
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, imgY, W, imgH);
+  ctx.rect(0, photoY, W, photoH);
   ctx.clip();
   if (bottom) {
-    cover(ctx, bottom, 0, imgY, W, imgH, imageControl.zoom, imageControl.x, imageControl.y);
+    cover(ctx, bottom, 0, photoY, W, photoH, imageControl.zoom, imageControl.x, imageControl.y);
   } else {
-    const fallback = ctx.createLinearGradient(0, imgY, W, H);
-    fallback.addColorStop(0, preset.dark);
-    fallback.addColorStop(1, preset.bg);
+    const fallback = ctx.createLinearGradient(0, photoY, W, H);
+    fallback.addColorStop(0, '#d8e6e8');
+    fallback.addColorStop(1, preset.dark);
     ctx.fillStyle = fallback;
-    ctx.fillRect(0, imgY, W, imgH);
-    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.fillRect(0, photoY, W, photoH);
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
     ctx.textAlign = 'center';
-    ctx.font = '800 40px Arial, Helvetica, sans-serif';
-    ctx.fillText('UPLOAD GPT IMAGE HERE', 540, imgY + 178);
-    ctx.font = '500 24px Arial, Helvetica, sans-serif';
-    ctx.fillText('Use the bottom image generated separately with GPT Image', 540, imgY + 220);
+    ctx.font = '900 42px Arial, Helvetica, sans-serif';
+    ctx.fillText('CARICA QUI L’IMMAGINE GPT', 540, photoY + 226);
+    ctx.font = '700 24px Arial, Helvetica, sans-serif';
+    ctx.fillText('La parte inferiore resta fotografica e sostituibile', 540, photoY + 265);
   }
-  const overlay = ctx.createLinearGradient(0, imgY, 0, H);
-  overlay.addColorStop(0, 'rgba(0,0,0,.06)');
-  overlay.addColorStop(1, 'rgba(0,0,0,.42)');
+  const overlay = ctx.createLinearGradient(0, photoY, 0, H);
+  overlay.addColorStop(0, 'rgba(0,0,0,.04)');
+  overlay.addColorStop(.55, 'rgba(0,0,0,.08)');
+  overlay.addColorStop(1, 'rgba(0,0,0,.38)');
   ctx.fillStyle = overlay;
-  ctx.fillRect(0, imgY, W, imgH);
-  ctx.fillStyle = 'rgba(255,255,255,.95)';
-  ctx.font = '700 22px Arial, Helvetica, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText('italianwineacademy.org', 1015, 1310);
+  ctx.fillRect(0, photoY, W, photoH);
   ctx.restore();
 
+  // Separation and footer
   ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,.15)';
-  roundRect(ctx, 70, 246, 940, 7, 4);
-  ctx.fill();
   ctx.fillStyle = preset.accent;
-  roundRect(ctx, 70, 246, 260, 7, 4);
-  ctx.fill();
+  ctx.fillRect(0, photoY - 8, W, 8);
+  ctx.fillStyle = 'rgba(255,255,255,.96)';
+  ctx.textAlign = 'right';
+  ctx.font = '900 22px Arial, Helvetica, sans-serif';
+  ctx.fillText('italianwineacademy.org', 1000, 1310);
   ctx.restore();
 }
 
@@ -333,7 +394,7 @@ function refreshUI() {
 
 function makeImagePrompt() {
   const preset = presets[state.templateLevel] || presets.level2;
-  return `Create only the bottom photographic image for an Italian Wine Academy ${preset.label} WSET course social post. Theme: ${state.bottomImageTheme}. Format: wide horizontal crop for the lower section of a 1080x1350 Instagram post. Style: realistic premium wine education photography, clean desk, course materials, wine glasses or bottles if relevant, elegant academy look. Avoid any text, logo, watermark, distorted hands, random labels, or fake certification marks.`;
+  return `Create only the bottom photographic image for an Italian Wine Academy ${preset.label} WSET course social post. Theme: ${state.bottomImageTheme}. Format: wide horizontal crop for the bottom 40% of a 1080x1350 Instagram course announcement. Style: realistic premium wine education photography, clean academy desk, course materials, wine glasses or bottles if relevant, elegant lighting. Avoid all text, logos, watermarks, fake labels, badges, distorted hands, or certification marks.`;
 }
 
 function normalizeKey(key) {
@@ -391,6 +452,8 @@ els.resetBtn.addEventListener('click', () => {
   els.promptInput.value = examplePrompt;
   localStorage.removeItem('iwaForm');
   localStorage.removeItem('iwaBottomSrc');
+  localStorage.removeItem('iwaImageControl');
+  saveState();
   refreshUI();
 });
 els.levelBtns.forEach(btn => btn.addEventListener('click', () => {
@@ -413,9 +476,9 @@ els.bottomFile.addEventListener('change', async event => {
   localStorage.setItem('iwaBottomSrc', bottomSrc);
   draw();
 });
-els.imgZoom.addEventListener('input', () => { imageControl.zoom = els.imgZoom.value; draw(); });
-els.imgX.addEventListener('input', () => { imageControl.x = els.imgX.value; draw(); });
-els.imgY.addEventListener('input', () => { imageControl.y = els.imgY.value; draw(); });
+els.imgZoom.addEventListener('input', () => { imageControl.zoom = Number(els.imgZoom.value); saveImageControl(); draw(); });
+els.imgX.addEventListener('input', () => { imageControl.x = Number(els.imgX.value); saveImageControl(); draw(); });
+els.imgY.addEventListener('input', () => { imageControl.y = Number(els.imgY.value); saveImageControl(); draw(); });
 els.copyImagePrompt.addEventListener('click', async () => {
   await navigator.clipboard.writeText(els.imagePrompt.value);
   els.copyImagePrompt.textContent = 'Copiato';
