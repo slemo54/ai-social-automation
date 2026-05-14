@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "node -e \"console.log('Static app: no build required')\""
+    "build": "mkdir -p dist && cp index.html styles.css app.js dist/"
   }
 }
