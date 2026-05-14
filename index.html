@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Italian Wine Academy course canvas generator, 1080x1350 PNG export." />
+  <title>IWA Canvas Generator</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">✦ Italian Wine Academy Canvas</span>
+        <h1>Template preciso 1080×1350 con immagine GPT Image sotto.</h1>
+        <p>Incolla i dati corso, carica logo IWA e foto inferiore, regola il crop e scarica il PNG pronto per Instagram.</p>
+      </div>
+      <button id="downloadTop" class="btn primary">⬇ Download PNG</button>
+    </header>
+
+    <section class="workspace">
+      <aside class="controls">
+        <section class="card">
+          <div class="cardHead">
+            <h2>1. Prompt dati corso</h2>
+            <button id="applyPrompt" class="btn small">Applica</button>
+          </div>
+          <textarea id="promptInput" class="mono"></textarea>
+        </section>
+
+        <section class="card">
+          <div class="cardHead">
+            <h2>2. Campi modificabili</h2>
+            <button id="resetBtn" class="btn small subtle">Reset</button>
+          </div>
+
+          <label>Template level</label>
+          <div class="segmented" role="group" aria-label="Template level">
+            <button class="levelBtn" data-level="level1">Level 1</button>
+            <button class="levelBtn" data-level="level2">Level 2</button>
+            <button class="levelBtn" data-level="level3">Level 3</button>
+          </div>
+
+          <div class="grid2">
+            <label>Course title<input id="courseTitle" /></label>
+            <label>Language<input id="language" /></label>
+            <label>Date<input id="date" /></label>
+            <label>Location<input id="location" /></label>
+          </div>
+          <label>Educator<input id="educator" /></label>
+          <label>Exam note<input id="examNote" /></label>
+          <label>Bottom image theme<textarea id="bottomImageTheme" class="smallText"></textarea></label>
+        </section>
+
+        <section class="card">
+          <h2>3. Asset reali</h2>
+          <div class="uploads">
+            <label class="uploadBox">◎ Logo IWA<br><small>PNG/SVG/JPG</small><input id="logoFile" type="file" accept="image/*" /></label>
+            <label class="uploadBox">▧ Foto sotto GPT Image<br><small>PNG/JPG</small><input id="bottomFile" type="file" accept="image/*" /></label>
+          </div>
+          <div class="ranges">
+            <h3>Regola foto sotto</h3>
+            <label>Zoom<input id="imgZoom" type="range" min="1" max="2" step="0.01" /></label>
+            <label>Posizione X<input id="imgX" type="range" min="-260" max="260" step="1" /></label>
+            <label>Posizione Y<input id="imgY" type="range" min="-180" max="180" step="1" /></label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardHead">
+            <h2>Prompt per GPT Image</h2>
+            <button id="copyImagePrompt" class="btn small">Copia</button>
+          </div>
+          <p class="hint">Da usare solo per creare la foto inferiore. Poi carichi qui il risultato.</p>
+          <textarea id="imagePrompt" class="mono compact" readonly></textarea>
+        </section>
+      </aside>
+
+      <section class="preview">
+        <div class="previewHead">
+          <div><strong>Anteprima canvas</strong><span>1080 × 1350 px</span></div>
+          <button id="downloadBtn" class="btn primary">⬇ Scarica PNG</button>
+        </div>
+        <div class="canvasWrap">
+          <canvas id="posterCanvas" width="1080" height="1350"></canvas>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
